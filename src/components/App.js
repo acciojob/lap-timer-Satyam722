@@ -1,132 +1,90 @@
-import React, { useState, useRef, useEffect } from 'react';
-
-// --- Utility Functions for Time Formatting ---
-
-// Pads a number with a leading zero if it's less than 10 (e.g., 5 -> 05)
-const pad = (num) => (num < 10 ? '0' + num : num);
-
-// Formats centiseconds into minutes, seconds, and centiseconds string
-const formatTime = (centiseconds) => {
-  const mins = Math.floor(centiseconds / 6000);
-  const secs = Math.floor((centiseconds % 6000) / 100);
-  const csecs = centiseconds % 100;
-  
-  return `${pad(mins)}:${pad(secs)}:${pad(csecs)}`;
-};
-
-
-// --- App Component (Lap Timer Logic) ---
+import React, { useState, useEffect, useRef } from "react";
 
 function App() {
-  // State for the main timer (tracked in centiseconds: 1/100th of a second)
-  const [time, setTime] = useState(0);
-  
-  // State to track if the timer is running
+  const [time, setTime] = useState(0); // time in centiseconds
   const [isRunning, setIsRunning] = useState(false);
-  
-  // State for recording and displaying lap times
   const [laps, setLaps] = useState([]);
-
-  // useRef for the interval ID: mutable reference that doesn't trigger a re-render
   const intervalRef = useRef(null);
 
-  // --- Timer Control Handlers ---
+  // Convert time → mm:ss:cs
+  const formatTime = (cs) => {
+    const minutes = Math.floor(cs / 6000);
+    const seconds = Math.floor((cs % 6000) / 100);
+    const centi = cs % 100;
 
-  const handleStart = () => {
-    if (isRunning) return; // Prevent starting if already running
-
-    setIsRunning(true);
-    
-    // Set up the interval and store its ID in the ref
-    intervalRef.current = setInterval(() => {
-      // Use the functional form of setTime to get the latest value
-      setTime(prevTime => prevTime + 1); // Increment by 1 centisecond
-    }, 10); // Run every 10 milliseconds (1 centisecond)
+    return `${pad(minutes)}:${pad(seconds)}:${pad(centi)}`;
   };
 
-  const handleStop = () => {
-    if (!isRunning) return; // Prevent stopping if already stopped
+  const pad = (num) => (num < 10 ? "0" + num : num);
 
-    // Clear the interval using the stored ID
-    clearInterval(intervalRef.current);
-    intervalRef.current = null;
+  // Start Timer
+  const startTimer = () => {
+    if (!isRunning) {
+      setIsRunning(true);
+      intervalRef.current = setInterval(() => {
+        setTime((prev) => prev + 1);
+      }, 10); // 10ms → 1 centisecond
+    }
+  };
+
+  // Stop Timer
+  const stopTimer = () => {
     setIsRunning(false);
+    clearInterval(intervalRef.current);
   };
 
-  const handleReset = () => {
-    handleStop(); // Ensure the timer is stopped
-    setTime(0);   // Reset main timer
-    setLaps([]);  // Reset laps list
+  // Record Lap
+  const recordLap = () => {
+    if (isRunning) {
+      setLaps((prev) => [...prev, formatTime(time)]);
+    }
   };
-  
-  const handleLap = () => {
-    if (!isRunning) return; // Only record lap if running
 
-    // Add the current time to the beginning of the laps array
-    setLaps(prevLaps => [time, ...prevLaps]); 
+  // Reset Timer
+  const resetTimer = () => {
+    clearInterval(intervalRef.current);
+    setIsRunning(false);
+    setTime(0);
+    setLaps([]);
   };
-  
-  // --- useEffect for Cleanup ---
 
+  // Cleanup on unmount → prevents memory leaks
   useEffect(() => {
-    // Cleanup function: runs when the component unmounts or before re-running the effect
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, []); // Empty dependency array ensures this runs only on mount/unmount
-
-  // --- Render ---
+    return () => clearInterval(intervalRef.current);
+  }, []);
 
   return (
-    <div className="lap-timer-app" style={{ textAlign: 'center', fontFamily: 'Arial' }}>
+    <div style={{ textAlign: "center", marginTop: "40px", fontFamily: "Arial" }}>
       <h1>Lap Timer</h1>
 
       {/* Timer Display */}
-      <div className="timer-display" style={{ fontSize: '3em', margin: '20px 0' }}>
+      <h2 style={{ fontSize: "48px", marginBottom: "20px" }}>
         {formatTime(time)}
-      </div>
+      </h2>
 
       {/* Control Buttons */}
-      <div className="controls" style={{ marginBottom: '20px' }}>
-        
-        {/* Reset button (always visible) */}
-        <button onClick={handleReset} disabled={isRunning && time > 0} style={{ padding: '10px', margin: '5px' }}>
-          Reset
+      <div style={{ marginBottom: "20px" }}>
+        <button onClick={startTimer} disabled={isRunning}>
+          Start
         </button>
-
-        {/* Start / Stop button (Conditional Rendering) */}
-        {isRunning ? (
-          <button onClick={handleStop} style={{ padding: '10px', margin: '5px', backgroundColor: 'red', color: 'white' }}>
-            Stop
-          </button>
-        ) : (
-          <button onClick={handleStart} style={{ padding: '10px', margin: '5px', backgroundColor: 'green', color: 'white' }}>
-            Start
-          </button>
-        )}
-        
-        {/* Lap button (only enabled when running) */}
-        <button onClick={handleLap} disabled={!isRunning} style={{ padding: '10px', margin: '5px' }}>
+        <button onClick={stopTimer} disabled={!isRunning}>
+          Stop
+        </button>
+        <button onClick={recordLap} disabled={!isRunning}>
           Lap
         </button>
+        <button onClick={resetTimer}>Reset</button>
       </div>
 
       {/* Laps List */}
-      {laps.length > 0 && (
-        <div className="laps-list" style={{ maxWidth: '300px', margin: '0 auto' }}>
-          <h2>Laps</h2>
-          <ol style={{ listStyleType: 'decimal-leading-zero', textAlign: 'left', paddingLeft: '40px' }}>
-            {/* Map over the recorded lap times */}
-            {laps.map((lapTime, index) => (
-              <li key={index} style={{ marginBottom: '5px', fontSize: '1.2em' }}>
-                Lap {laps.length - index}: {formatTime(lapTime)}
-              </li>
-            ))}
-          </ol>
-        </div>
-      )}
+      <h3>Laps:</h3>
+      <ul style={{ listStyle: "none", padding: 0 }}>
+        {laps.map((lap, index) => (
+          <li key={index} style={{ fontSize: "20px", margin: "5px" }}>
+            Lap {index + 1}: {lap}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
