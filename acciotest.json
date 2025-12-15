@@ -1,0 +1,4 @@
+{
+    "testRepo": "lap-timer-solution",
+    "pathToFile": "cypress/integration/tests/test.spec.js"
+}
